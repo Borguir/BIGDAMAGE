@@ -1,0 +1,81 @@
+#Battle Escene
+extends Node2D
+
+@onready var player = $Player1
+@onready var botones = [$Acciones/VBoxContainer/Atacar, $Acciones/VBoxContainer/Cargar, $Acciones/VBoxContainer/Habilidad]
+@onready var resaltar = $Resaltador
+
+
+enum Estado {
+	ELEGIR_POSICION,
+	ELEGIR_OBJETIVO,
+	ELEGIR_ACCION,
+	RESOLVER
+}
+
+var estado_actual = Estado.ELEGIR_POSICION
+var posicion_player: Vector2i
+var objetivo_elegido: Vector2i
+
+#Ordenar Despues
+var tiles_enemigo = [
+	Vector2i(5, 0), Vector2i(5, 1), Vector2i(5, 2),
+	Vector2i(6, 0), Vector2i(6, 1), Vector2i(6, 2)
+]
+var indice_objetivo = 0
+
+
+func _ready() -> void:
+	cambiar_estado(Estado.ELEGIR_POSICION)
+
+func cambiar_estado(nuevo_estado) -> void:
+	estado_actual = nuevo_estado
+	match estado_actual:
+		Estado.ELEGIR_POSICION:
+			desabilitar_botones()
+			resaltar.clear()
+			print("elegí posición")
+		Estado.ELEGIR_OBJETIVO:
+			desabilitar_botones()
+			indice_objetivo = 0
+			resaltar_objetivo()
+			print("elegí objetivo")
+		Estado.ELEGIR_ACCION:
+			habilitar_botones()
+			botones[0].grab_focus()
+			print("posición confirmada en ", posicion_player)
+			print("ahora elegí acción")
+		Estado.RESOLVER:
+			print("resolviendo")
+
+func _input(event: InputEvent) -> void:
+	if Input.is_action_just_pressed("ui_accept"):
+		if estado_actual == Estado.ELEGIR_POSICION:
+			posicion_player = player.grid_pos
+			cambiar_estado(Estado.ELEGIR_OBJETIVO)
+			get_viewport().set_input_as_handled()
+			
+		elif estado_actual == Estado.ELEGIR_OBJETIVO:
+			objetivo_elegido = tiles_enemigo[indice_objetivo]
+			cambiar_estado(Estado.ELEGIR_ACCION)
+			get_viewport().set_input_as_handled()
+	
+	if estado_actual == Estado.ELEGIR_OBJETIVO:
+		if Input.is_action_just_pressed("ui_down") or Input.is_action_just_pressed("ui_right"):
+			indice_objetivo = (indice_objetivo + 1) % tiles_enemigo.size()
+			resaltar_objetivo()
+		elif Input.is_action_just_pressed("ui_up") or Input.is_action_just_pressed("ui_left"):
+			indice_objetivo = (indice_objetivo - 1 + tiles_enemigo.size()) % tiles_enemigo.size()
+			resaltar_objetivo()
+
+func habilitar_botones():
+	for boton in botones:
+		boton.focus_mode = Control.FOCUS_ALL
+
+func desabilitar_botones():
+	for boton in botones:
+		boton.focus_mode = Control.FOCUS_NONE
+
+func resaltar_objetivo():
+	resaltar.clear()
+	resaltar.set_cell(tiles_enemigo[indice_objetivo], 1, Vector2i(0,0))
