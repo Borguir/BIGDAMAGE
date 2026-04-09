@@ -1,16 +1,18 @@
-#Battle Escene
 extends Node2D
 
 @onready var player = $Player1
 @onready var botones = [$Acciones/VBoxContainer/Atacar, $Acciones/VBoxContainer/Cargar, $Acciones/VBoxContainer/Habilidad]
 @onready var resaltar = $Resaltador
+@onready var tilemap = $TileMapLayer
 
 
 enum Estado {
 	ELEGIR_POSICION,
 	ELEGIR_OBJETIVO,
 	ELEGIR_ACCION,
-	RESOLVER
+	RESOLVER,
+	OBJETIVO_ENEMIGO,
+	RESOLVER_ENEMIGO
 }
 
 var estado_actual = Estado.ELEGIR_POSICION
@@ -47,6 +49,10 @@ func cambiar_estado(nuevo_estado) -> void:
 			print("ahora elegí acción")
 		Estado.RESOLVER:
 			print("resolviendo")
+		Estado.OBJETIVO_ENEMIGO:
+			print("OBjetivo del enemigo")
+		Estado.RESOLVER_ENEMIGO:
+			print("Enemigo ataca")
 
 func _input(event: InputEvent) -> void:
 	if Input.is_action_just_pressed("ui_accept"):
@@ -79,3 +85,19 @@ func desabilitar_botones():
 func resaltar_objetivo():
 	resaltar.clear()
 	resaltar.set_cell(tiles_enemigo[indice_objetivo], 1, Vector2i(0,0))
+
+func animar_golpe_player():
+	if estado_actual != Estado.RESOLVER:
+		return
+	else:
+		var destino = tilemap.map_to_local(objetivo_elegido)
+		var origen = tilemap.map_to_local(posicion_player)
+		var tween = create_tween()
+		tween.tween_property(player, "position", destino, 0.3)
+		tween.tween_property(player, "position", origen, 0.3)
+		tween.tween_callback(func(): cambiar_estado(Estado.OBJETIVO_ENEMIGO))
+
+
+func _on_atacar_pressed() -> void:
+	estado_actual = Estado.RESOLVER
+	animar_golpe_player()
