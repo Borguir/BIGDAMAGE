@@ -1,18 +1,19 @@
-#Player
-
 extends Area2D
 
+signal posicion_cambiada(nueva_posicion)
 
 
 var grid_min = Vector2i(3, 0)
 var grid_max = Vector2i(4, 2)
+@onready var stats = preload("res://Recursos/Stats_Player.tres")
 @onready var battle_manager = $".."
 @onready var tilemap: TileMapLayer = $"../TileMapLayer"
 var grid_pos: Vector2i = Vector2i(3, 1)
-var moviéndose: bool = false
+var moviendose: bool = false
 
 func _ready() -> void:
 	position = tilemap.map_to_local(grid_pos)
+	$Sprite2D.texture = stats.textura
 
 func _input(_event: InputEvent) -> void:
 	if battle_manager.estado_actual != battle_manager.Estado.ELEGIR_POSICION:
@@ -28,7 +29,7 @@ func _input(_event: InputEvent) -> void:
 		intentar_mover(Vector2i(0, 1))
 
 func intentar_mover(direccion: Vector2i):
-	if moviéndose:
+	if moviendose:
 		return
 	var nueva_pos = grid_pos + direccion
 	if es_celda_valida(nueva_pos):
@@ -47,7 +48,10 @@ func es_celda_valida(pos: Vector2i) -> bool:
 
 func mover_a_celda(pos: Vector2i):
 	var destino = tilemap.map_to_local(pos)
-	moviéndose = true
+	moviendose = true
 	var tween = create_tween()
 	tween.tween_property(self, "position", destino, 0.1)
-	tween.tween_callback(func(): moviéndose = false)
+	tween.tween_callback(func(): 
+		moviendose = false
+		emit_signal("posicion_cambiada", grid_pos)
+		)
