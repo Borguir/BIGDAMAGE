@@ -1,0 +1,12 @@
+# Enemy.gd
+extends Area2D
+@onready var stats_ene = preload("res://Recursos/Stats_Enemi1.tres")
+@onready var battle_manager = $".."
+@onready var tilemap: TileMapLayer = $"../TileMapLayer"
+
+var grid_pos: Vector2i = Vector2i(6, 1)
+var hp: int = 30
+
+func _ready() -> void:
+	position = tilemap.map_to_local(grid_pos)
+	$Sprite2D.texture = stats_ene.textura
