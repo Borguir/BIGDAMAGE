@@ -1,10 +1,22 @@
 extends Node2D
 
-@onready var player = $Player1
+
+var escena_player = preload("res://Personajes/player_1.tscn")
+var player = escena_player.instantiate()
+var escena_enemigo = preload("res://Personajes/enemigo_1.tscn")
+var enemigo = escena_enemigo.instantiate()
+
+#region Onreadys
+@onready var StatsPlayer = preload("res://Recursos/Stats_Player.tres")
+
+
 @onready var botones = [$Acciones/VBoxContainer/Atacar, $Acciones/VBoxContainer/Cargar, $Acciones/VBoxContainer/Habilidad]
 @onready var resaltar = $Resaltador
 @onready var tilemap = $TileMapLayer
-
+@onready var boton_atacar = $Acciones/VBoxContainer/Atacar
+@onready var boton_cargar = $Acciones/VBoxContainer/Cargar
+@onready var boton_habilidad = $Acciones/VBoxContainer/Habilidad
+#endregion
 
 enum Estado {
 	ELEGIR_POSICION,
@@ -28,7 +40,11 @@ var indice_objetivo = 0
 
 
 func _ready() -> void:
+	add_child(player)
+	add_child(enemigo)
+	player.posicion_cambiada.connect(_on_player_posicion_cambiada)
 	cambiar_estado(Estado.ELEGIR_POSICION)
+	desabilitar_botones()
 
 func cambiar_estado(nuevo_estado) -> void:
 	estado_actual = nuevo_estado
@@ -36,6 +52,7 @@ func cambiar_estado(nuevo_estado) -> void:
 		Estado.ELEGIR_POSICION:
 			desabilitar_botones()
 			resaltar.clear()
+			resaltar_player()
 			print("elegí posición")
 		Estado.ELEGIR_OBJETIVO:
 			desabilitar_botones()
@@ -48,13 +65,14 @@ func cambiar_estado(nuevo_estado) -> void:
 			print("posición confirmada en ", posicion_player)
 			print("ahora elegí acción")
 		Estado.RESOLVER:
+			desabilitar_botones()
 			print("resolviendo")
 		Estado.OBJETIVO_ENEMIGO:
 			print("OBjetivo del enemigo")
 		Estado.RESOLVER_ENEMIGO:
 			print("Enemigo ataca")
 
-func _input(event: InputEvent) -> void:
+func _input(_event: InputEvent) -> void:
 	if Input.is_action_just_pressed("ui_accept"):
 		if estado_actual == Estado.ELEGIR_POSICION:
 			posicion_player = player.grid_pos
@@ -75,16 +93,38 @@ func _input(event: InputEvent) -> void:
 			resaltar_objetivo()
 
 func habilitar_botones():
+	boton_atacar.disabled = false
+	boton_cargar.disabled = false
+	boton_habilidad.disabled = false
 	for boton in botones:
 		boton.focus_mode = Control.FOCUS_ALL
 
 func desabilitar_botones():
+	boton_atacar.disabled = true
+	boton_cargar.disabled = true
+	boton_habilidad.disabled = true
 	for boton in botones:
 		boton.focus_mode = Control.FOCUS_NONE
 
+#region Resaltados
 func resaltar_objetivo():
+	actualizar_resaltado_visual()
+
+func _on_player_posicion_cambiada(_nueva_pos):
+	actualizar_resaltado_visual()
+
+func actualizar_resaltado_visual():
 	resaltar.clear()
-	resaltar.set_cell(tiles_enemigo[indice_objetivo], 1, Vector2i(0,0))
+	match estado_actual:
+		Estado.ELEGIR_POSICION:
+			resaltar.set_cell(player.grid_pos, 0, Vector2i(0, 0))
+		Estado.ELEGIR_OBJETIVO:
+			resaltar.set_cell(posicion_player, 0, Vector2i(0, 0))
+			resaltar.set_cell(tiles_enemigo[indice_objetivo], 1, Vector2i(0, 0))
+
+func resaltar_player():
+	actualizar_resaltado_visual()
+#endregion
 
 func animar_golpe_player():
 	if estado_actual != Estado.RESOLVER:
@@ -97,7 +137,9 @@ func animar_golpe_player():
 		tween.tween_property(player, "position", origen, 0.3)
 		tween.tween_callback(func(): cambiar_estado(Estado.OBJETIVO_ENEMIGO))
 
+func do_damage():
+	pass
 
 func _on_atacar_pressed() -> void:
-	estado_actual = Estado.RESOLVER
+	cambiar_estado(Estado.RESOLVER)
 	animar_golpe_player()
