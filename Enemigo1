@@ -1,12 +1,26 @@
 # Enemy.gd
 extends Area2D
+
+signal posicion_cambiada(nueva_posicion: Vector2i)
+
 @onready var stats_ene = preload("res://Recursos/Stats_Enemi1.tres")
 @onready var battle_manager = $".."
 @onready var tilemap: TileMapLayer = $"../TileMapLayer"
 
 var grid_pos: Vector2i = Vector2i(6, 1)
-var hp: int = 30
+var posible_posicion = [
+	Vector2i(5, 0), Vector2i(5, 1), Vector2i(5, 2),
+	Vector2i(6, 0), Vector2i(6, 1), Vector2i(6, 2)
+]
 
 func _ready() -> void:
 	position = tilemap.map_to_local(grid_pos)
 	$Sprite2D.texture = stats_ene.textura
+
+func cambiar_posicion():
+	var nuevo_tile = battle_manager.tiles_enemigo.pick_random()
+	grid_pos = nuevo_tile
+	posicion_cambiada.emit(grid_pos)
+	var tween = create_tween()
+	tween.tween_property(self, "position", tilemap.map_to_local(grid_pos), 0.3)
+		
