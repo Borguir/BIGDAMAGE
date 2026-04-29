@@ -1,13 +1,35 @@
 extends Node2D
 
-
+#region Variables
 var escena_player = preload("res://Personajes/player_1.tscn")
 var player = escena_player.instantiate()
 var escena_enemigo = preload("res://Personajes/enemigo_1.tscn")
 var enemigo = escena_enemigo.instantiate()
+var player_grid_actual: Vector2i
+var enemigo_grid_actual: Vector2i
+var posicion_player: Vector2i
+var objetivo_elegido: Vector2i
+var objetivoo: Vector2i
+
+
+
+var estado_actual = Estado.ELEGIR_POSICION
+
+#Ordenar Despues
+var tiles_enemigo = [
+	Vector2i(5, 0), Vector2i(5, 1), Vector2i(5, 2),
+	Vector2i(6, 0), Vector2i(6, 1), Vector2i(6, 2)
+]
+var tiles_player = [
+	Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2),
+	Vector2i(4, 0), Vector2i(4, 1), Vector2i(4, 2)
+]
+var indice_objetivo = 0
+#endregion
 
 #region Onreadys
 @onready var StatsPlayer = preload("res://Recursos/Stats_Player.tres")
+@onready var StatsEnemigo = preload("res://Recursos/Stats_Enemi1.tres")
 
 
 @onready var botones = [$Acciones/VBoxContainer/Atacar, $Acciones/VBoxContainer/Cargar, $Acciones/VBoxContainer/Habilidad]
@@ -24,26 +46,20 @@ enum Estado {
 	ELEGIR_ACCION,
 	RESOLVER,
 	OBJETIVO_ENEMIGO,
-	RESOLVER_ENEMIGO
+	RESOLVER_ENEMIGO,
+	VICTORIA,
+	DERROTA
 }
 
-var estado_actual = Estado.ELEGIR_POSICION
-var posicion_player: Vector2i
-var objetivo_elegido: Vector2i
-
-#Ordenar Despues
-var tiles_enemigo = [
-	Vector2i(5, 0), Vector2i(5, 1), Vector2i(5, 2),
-	Vector2i(6, 0), Vector2i(6, 1), Vector2i(6, 2)
-]
-var indice_objetivo = 0
-
-
 func _ready() -> void:
+	print("Vida player:", StatsPlayer.vida)
 	add_child(player)
 	add_child(enemigo)
 	player.posicion_cambiada.connect(_on_player_posicion_cambiada)
+	enemigo.posicion_cambiada.connect(_on_enemigo_posicion_cambiada)
 	cambiar_estado(Estado.ELEGIR_POSICION)
+	player_grid_actual = player.grid_pos
+	enemigo_grid_actual = enemigo.grid_pos
 	desabilitar_botones()
 
 func cambiar_estado(nuevo_estado) -> void:
@@ -65,12 +81,21 @@ func cambiar_estado(nuevo_estado) -> void:
 			print("posición confirmada en ", posicion_player)
 			print("ahora elegí acción")
 		Estado.RESOLVER:
+			enemigo.cambiar_posicion()
 			desabilitar_botones()
 			print("resolviendo")
 		Estado.OBJETIVO_ENEMIGO:
+			objetivo_enemigo()
+			await get_tree().create_timer(0.5).timeout
 			print("OBjetivo del enemigo")
 		Estado.RESOLVER_ENEMIGO:
 			print("Enemigo ataca")
+			await get_tree().create_timer(0.5).timeout
+			cambiar_estado(Estado.ELEGIR_POSICION)
+		Estado.DERROTA:
+			print("FUISTE DERROTADO")
+		Estado.VICTORIA:
+			print("GANASTE CTMM")
 
 func _input(_event: InputEvent) -> void:
 	if Input.is_action_just_pressed("ui_accept"):
@@ -110,8 +135,14 @@ func desabilitar_botones():
 func resaltar_objetivo():
 	actualizar_resaltado_visual()
 
-func _on_player_posicion_cambiada(_nueva_pos):
+func _on_player_posicion_cambiada(nueva_pos: Vector2i):
 	actualizar_resaltado_visual()
+	player_grid_actual = nueva_pos
+	print("El Manager sabe que el player está en: ", player_grid_actual)
+
+func _on_enemigo_posicion_cambiada(nueva_pos: Vector2i):
+	enemigo_grid_actual = nueva_pos
+	print("El Manager sabe que el ENEMIGO está en: ", enemigo_grid_actual)
 
 func actualizar_resaltado_visual():
 	resaltar.clear()
@@ -126,6 +157,7 @@ func resaltar_player():
 	actualizar_resaltado_visual()
 #endregion
 
+#region Golpes
 func animar_golpe_player():
 	if estado_actual != Estado.RESOLVER:
 		return
@@ -134,11 +166,47 @@ func animar_golpe_player():
 		var origen = tilemap.map_to_local(posicion_player)
 		var tween = create_tween()
 		tween.tween_property(player, "position", destino, 0.3)
+		tween.tween_callback(do_damage)
 		tween.tween_property(player, "position", origen, 0.3)
 		tween.tween_callback(func(): cambiar_estado(Estado.OBJETIVO_ENEMIGO))
 
 func do_damage():
-	pass
+	if objetivo_elegido == enemigo_grid_actual:
+		StatsEnemigo.vida -= 10
+		print(StatsEnemigo.vida, "vida del enmeigo")
+	derrota_o_victoria()
+
+func recibir_damage():
+	if objetivoo == player_grid_actual:
+		StatsPlayer.vida -= 10
+		print(StatsPlayer.vida, "Vida del player luego del ataque")
+	derrota_o_victoria()
+
+func objetivo_enemigo():
+	objetivoo = tiles_player.pick_random()
+	if estado_actual != Estado.OBJETIVO_ENEMIGO:
+		return
+	else:
+		var destino = tilemap.map_to_local(objetivoo)
+		var origen = enemigo.position
+		var tween = create_tween()
+		tween.tween_property(enemigo, "position", destino, 0.3)
+		tween.tween_callback(recibir_damage)
+		tween.tween_property(enemigo, "position", origen, 0.3)
+		tween.tween_callback(func(): cambiar_estado(Estado.RESOLVER_ENEMIGO))
+
+func derrota_o_victoria():
+	if StatsEnemigo.vida > 0 and StatsPlayer.vida > 0:
+		return
+	elif StatsEnemigo.vida <= 0:
+		cambiar_estado(Estado.VICTORIA)
+	#SUPONGO QUE DESPUÉS AQUI VENDRA LA WEA DE VICOTORIA
+	elif StatsPlayer.vida <= 0:
+		cambiar_estado(Estado.DERROTA)
+		#AQUÍ TENGO QUE PONER QUE CAMBIA LA ESCENA DE DERROTA Y VOLVER A JUGAR
+
+
+#endregion
 
 func _on_atacar_pressed() -> void:
 	cambiar_estado(Estado.RESOLVER)
