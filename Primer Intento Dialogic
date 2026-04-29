@@ -1,0 +1,15 @@
+extends Control
+
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+	Dialogic.signal_event.connect(_on_dialogic_signal)
+	Dialogic.start("res://AATimelines/timeline.dtl")
+
+func _on_dialogic_signal(argument: String):
+	# 2. Verificamos si el argumento es el que definimos en el editor
+	if argument == "pelear":
+		await get_tree().create_timer(1).timeout
+		change_scene()
+
+func change_scene():
+	get_tree().change_scene_to_file("res://Escenas/battle_scene.tscn")
